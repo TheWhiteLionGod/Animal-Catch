@@ -1,2 +1,2 @@
-# Animon-GO
+# Animal Catch
 **TODO:** Make a README
