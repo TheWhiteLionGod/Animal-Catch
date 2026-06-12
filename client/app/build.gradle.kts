@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.animongo"
+    namespace = "com.example.animalcatch"
     compileSdk = 36
 
     defaultConfig {
