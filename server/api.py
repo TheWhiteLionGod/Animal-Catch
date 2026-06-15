@@ -3,6 +3,7 @@ from dbhandler import SmartCursor, createAnimalTable, getAnimalStat
 import os
 
 type APIReturn = tuple[Response, int | None]
+ALLOWED_EXTENSIONS: set[str] = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__)
 cursor = SmartCursor(
@@ -51,7 +52,7 @@ def identifyAnimal() -> APIReturn:
         }), 400
     
     file = request.files['image']
-    if file.filename == '':
+    if file.filename == '' or not isFileAllowed(file.filename):
         return jsonify({
             "success": False
         }), 400
@@ -63,6 +64,9 @@ def identifyAnimal() -> APIReturn:
         "success": True,
         "animalName": animalName
     })
+
+def isFileAllowed(filename: str) -> bool:
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=5000)
