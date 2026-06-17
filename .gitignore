@@ -15,4 +15,6 @@
 .cxx
 local.properties
 
-# TODO: Python Files
+# Python Files
+env/
+__pycache__/
