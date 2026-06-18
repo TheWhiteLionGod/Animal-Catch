@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, Response
 from dbhandler import SmartCursor, createAnimalTable, getAnimalStat
-from aihandler import ImageClassificationPipeline, createClassifier, predictAnimal
 from PIL import Image
 import io
 import os
@@ -9,7 +8,6 @@ type APIReturn = tuple[Response, int | None]
 ALLOWED_EXTENSIONS: set[str] = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__)
-classifier: ImageClassificationPipeline = createClassifier()
 
 cursor = SmartCursor(
     os.environ.get("DBHOST"),
@@ -29,7 +27,7 @@ def homepage() -> APIReturn:
 @app.route("/getstats/<animalName>")
 def getStats(animalName: str) -> APIReturn:
     try:
-        stats = getAnimalStat(cursor, animalName)
+        stats = getAnimalStat(cursor, animalName.lower())
         return jsonify({
             "success": True,
             **stats
@@ -41,7 +39,7 @@ def getStats(animalName: str) -> APIReturn:
     
     return jsonify({
         "success": False,
-        "name": animalName,
+        "name": animalName.lower(),
         "hp": -1,
         "atk": -1,
         "def": -1,
@@ -62,13 +60,12 @@ def identifyAnimal() -> APIReturn:
         }), 400
     
     # TODO: Identify Animal
-    image: Image = Image.open(io.BytesIO(file.read())).convert("RGB")
-    prediction: dict[str, float] = predictAnimal(classifier, image)
-    animalName: str = max(prediction, key=prediction.get)
+    _image: Image = Image.open(io.BytesIO(file.read())).convert("RGB")
+    animalName: str = "Lapris"
 
     return jsonify({
         "success": True,
-        "animalName": animalName
+        "animalName": animalName.lower()
     })
 
 def isFileAllowed(filename: str) -> bool:
