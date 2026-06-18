@@ -1,11 +1,16 @@
 from flask import Flask, request, jsonify, Response
 from dbhandler import SmartCursor, createAnimalTable, getAnimalStat
+from aihandler import ImageClassificationPipeline, createClassifier, predictAnimal
+from PIL import Image
+import io
 import os
 
 type APIReturn = tuple[Response, int | None]
 ALLOWED_EXTENSIONS: set[str] = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__)
+classifier: ImageClassificationPipeline = createClassifier()
+
 cursor = SmartCursor(
     os.environ.get("DBHOST"),
     os.environ.get("DBNAME"),
@@ -13,7 +18,6 @@ cursor = SmartCursor(
     os.environ.get("DBPASS"),
     os.environ.get("DBPORT")
 )
-
 createAnimalTable(cursor)
 
 @app.route("/")
@@ -58,7 +62,9 @@ def identifyAnimal() -> APIReturn:
         }), 400
     
     # TODO: Identify Animal
-    animalName: str = "Lapris"
+    image: Image = Image.open(io.BytesIO(file.read())).convert("RGB")
+    prediction: dict[str, float] = predictAnimal(classifier, image)
+    animalName: str = max(prediction, key=prediction.get)
 
     return jsonify({
         "success": True,

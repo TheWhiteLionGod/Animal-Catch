@@ -6,7 +6,7 @@ import os
 def createClassifier() -> ImageClassificationPipeline:
     return pipeline("image-classification", model="timm/vit_large_patch14_clip_336.laion2b_ft_augreg_inat21")
 
-def predictAnimal(classifier: ImageClassificationPipeline, image: Image) -> dict[str, str | float]:
+def predictAnimal(classifier: ImageClassificationPipeline, image: Image) -> dict[str, float]:
     predictions: list[dict] = classifier(image)
     return {pred["label"]: pred['score'] for pred in predictions}
 
