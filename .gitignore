@@ -18,3 +18,4 @@ local.properties
 # Python Files
 env/
 __pycache__/
+*.pem

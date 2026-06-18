@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify, Response
 from dbhandler import SmartCursor, createAnimalTable, getAnimalStat
-from PIL import Image
-import io
+import requests
 import os
 
 type APIReturn = tuple[Response, int | None]
 ALLOWED_EXTENSIONS: set[str] = {'png', 'jpg', 'jpeg'}
+INTERNAL_SERVER: str = os.environ.get("INTERNAL_SERVER")
 
 app = Flask(__name__)
 
@@ -59,14 +59,20 @@ def identifyAnimal() -> APIReturn:
             "success": False
         }), 400
     
-    # TODO: Identify Animal
-    _image: Image = Image.open(io.BytesIO(file.read())).convert("RGB")
-    animalName: str = "Lapris"
+    try:
+        response = requests.post(
+            INTERNAL_SERVER + "/identify", 
+            files={"image": (file.filename, file.stream, file.mimetype)},
+            timeout=15
+        )
 
-    return jsonify({
-        "success": True,
-        "animalName": animalName.lower()
-    })
+        return jsonify(response.json()), response.status_code
+
+    except requests.RequestException as e:
+        raise e
+        return jsonify({
+            "success": False
+        }), 400
 
 def isFileAllowed(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
