@@ -36,7 +36,7 @@ def createAnimalTable(smartCursor: SmartCursor) -> None:
     # FOR TESTING: REMOVE FOR RELEASE
     smartCursor.cursor.execute(
         """
-        SELECT * FROM animals WHERE name = 'Lapris';
+        SELECT * FROM animals WHERE name = 'lapris';
         """
     )
 
@@ -46,7 +46,7 @@ def createAnimalTable(smartCursor: SmartCursor) -> None:
             """
             INSERT INTO animals (name, hp, atk, def, spd) VALUES (%s, %s, %s, %s, %s);
             """,
-            ("Lapris", 100, 120, 75, 95)
+            ("lapris", 100, 120, 75, 95)
         )
 
     smartCursor.connection.commit()
