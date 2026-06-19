@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, Response
-from aihandler import ImageClassificationPipeline, createClassifier, predictAnimal
+from animalclassifier import ImageClassificationPipeline, createClassifier, predictAnimal
+from statgenerator import TextGenerationPipeline, createGenerator, generateStats
 from PIL import Image
 import requests
 import io
@@ -10,12 +11,27 @@ GBIF_API_URL: str = "https://api.gbif.org/v1/species/"
 
 app = Flask(__name__)
 classifier: ImageClassificationPipeline = createClassifier()
+generator: TextGenerationPipeline = createGenerator()
 
 @app.route("/")
 def homepage() -> APIReturn:
     return jsonify({
         "success": True
     })
+
+@app.route("/generatestats/<animalName>")
+def getStats(animalName: str) -> APIReturn:
+    try:
+        stats: dict[str, str | int] = generateStats(generator, animalName)
+        return jsonify({
+            "success": True,
+            **stats
+        })
+
+    except ValueError:
+        return jsonify({
+            "success": False
+        }), 400
 
 @app.route("/identify", methods=["POST"])
 def identifyAnimal() -> APIReturn:
@@ -30,7 +46,6 @@ def identifyAnimal() -> APIReturn:
             "success": False
         }), 400
     
-    # TODO: Identify Animal
     image: Image = Image.open(io.BytesIO(file.read())).convert("RGB")
     prediction: dict[str, float] = predictAnimal(classifier, image)
 
