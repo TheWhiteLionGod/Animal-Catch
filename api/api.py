@@ -1,5 +1,7 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, url_for#, redirect <-- For Android 
 from dbhandler import SmartCursor, createAnimalTable, getAnimalStat, insertAnimalStat
+from authhandler import Authenticator, createJwt
+from typing import Any
 import requests
 import os
 
@@ -8,6 +10,14 @@ ALLOWED_EXTENSIONS: set[str] = {'png', 'jpg', 'jpeg'}
 INTERNAL_SERVER: str = os.environ.get("INTERNAL_SERVER")
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY")
+JWT_SECRET = os.environ.get("JWT_SECRET")
+
+authenticator = Authenticator(
+    app,
+    os.environ.get("CLIENT_ID"), 
+    os.environ.get("CLIENT_SECRET")
+)
 
 cursor = SmartCursor(
     os.environ.get("DBHOST"),
@@ -23,6 +33,26 @@ def homepage() -> APIReturn:
     return jsonify({
         "success": True
     })
+
+@app.route("/login")
+def login() -> APIReturn:
+    return authenticator.googleRedirect(url_for("auth", _external=True))
+
+@app.route("/auth")
+def auth() -> APIReturn:
+    token: dict[str, Any] = authenticator.googleToken()
+    userInfo: dict[str, Any] = token["userinfo"]
+    
+    jwtToken: str = createJwt(
+        {
+            "sub": userInfo["sub"],
+            "email": userInfo["email"]
+        },
+        JWT_SECRET
+    )
+
+    # return redirect(f"animalcatch://auth?token={jwtToken}")
+    return jsonify(userInfo, jwtToken)
 
 @app.route("/getstats/<animalName>")
 def getStats(animalName: str) -> APIReturn:
