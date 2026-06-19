@@ -73,3 +73,43 @@ def insertAnimalStat(
     )
 
     smartCursor.connection.commit()
+
+def createUserTable(smartCursor: SmartCursor) -> None:
+    smartCursor.cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email VARCHAR(100) UNIQUE NOT NULL
+        );
+        """
+    )
+
+    smartCursor.connection.commit()
+
+def getUserData(smartCursor: SmartCursor, id: int) -> dict[str, str | int]:
+    smartCursor.cursor.execute(
+        """
+        SELECT * FROM users WHERE id = %s;
+        """, 
+        (id,)
+    )
+
+    row = smartCursor.cursor.fetchone()
+    if row is None:
+        raise ValueError("User Does Not Exist in Database")
+    
+    return {
+        "id": row[0],
+        "email": row[1]
+    }
+
+def insertUser(smartCursor: SmartCursor, id: int, email: str) -> None:
+    smartCursor.cursor.execute(
+        """
+        INSERT INTO users (id, email) 
+        VALUES (%s, %s);
+        """, 
+        (id, email)
+    )
+
+    smartCursor.connection.commit()

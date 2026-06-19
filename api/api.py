@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, Response, url_for#, redirect <-- For Android 
-from dbhandler import SmartCursor, createAnimalTable, getAnimalStat, insertAnimalStat
+from dbhandler import (SmartCursor, createAnimalTable, getAnimalStat, insertAnimalStat, createUserTable, getUserData, insertUser)
 from authhandler import Authenticator, createJwt
 from typing import Any
 import requests
@@ -27,6 +27,7 @@ cursor = SmartCursor(
     os.environ.get("DBPORT")
 )
 createAnimalTable(cursor)
+createUserTable(cursor)
 
 @app.route("/")
 def homepage() -> APIReturn:
@@ -43,16 +44,16 @@ def auth() -> APIReturn:
     token: dict[str, Any] = authenticator.googleToken()
     userInfo: dict[str, Any] = token["userinfo"]
     
-    jwtToken: str = createJwt(
-        {
-            "sub": userInfo["sub"],
-            "email": userInfo["email"]
-        },
-        JWT_SECRET
-    )
+    try:
+        data: dict[str, str] = getUserData(cursor, str(userInfo["sub"]))
 
+    except ValueError:
+        data: dict[str, str] = {"id": str(userInfo["sub"]), "email": userInfo["email"]}
+        insertUser(cursor, data["id"], data["email"])
+    
     # return redirect(f"animalcatch://auth?token={jwtToken}")
-    return jsonify(userInfo, jwtToken)
+    jwtToken: str = createJwt(data, JWT_SECRET)
+    return jsonify({"success": True, "token": jwtToken, **data})
 
 @app.route("/getstats/<animalName>")
 def getStats(animalName: str) -> APIReturn:

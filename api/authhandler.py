@@ -24,7 +24,7 @@ class Authenticator:
 def createJwt(userInfo: dict, jwtSecret: str) -> str:
     return jwt.encode(
         {
-            "sub": userInfo["sub"],
+            "id": userInfo["id"],
             "email": userInfo["email"],
             "exp": datetime.now(timezone.utc) + timedelta(days=30)
         },
