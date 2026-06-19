@@ -34,17 +34,20 @@ def getStats(animalName: str) -> APIReturn:
         })
 
     except ValueError:
-        # TODO: Create Animal via AI
         pass
-    
-    return jsonify({
-        "success": False,
-        "name": animalName.lower(),
-        "hp": -1,
-        "atk": -1,
-        "def": -1,
-        "spd": -1
-    }), 400
+
+    try:
+        response = requests.get(
+            INTERNAL_SERVER + f"/generatestats/{animalName}",
+            timeout=25
+        )
+        
+        return jsonify(response.json()), response.status_code
+
+    except requests.RequestException:
+        return jsonify({
+            "success": False
+        }), 400
 
 @app.route("/identify", methods=["POST"])
 def identifyAnimal() -> APIReturn:
@@ -68,7 +71,7 @@ def identifyAnimal() -> APIReturn:
 
         return jsonify(response.json()), response.status_code
 
-    except requests.RequestException as e:
+    except requests.RequestException:
         return jsonify({
             "success": False
         }), 400
