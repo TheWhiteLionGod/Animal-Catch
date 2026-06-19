@@ -69,7 +69,6 @@ def identifyAnimal() -> APIReturn:
         return jsonify(response.json()), response.status_code
 
     except requests.RequestException as e:
-        raise e
         return jsonify({
             "success": False
         }), 400
