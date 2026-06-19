@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.animongo"
+    namespace = "com.example.animalcatch"
     compileSdk = 36
 
     defaultConfig {
@@ -32,7 +32,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
@@ -40,4 +39,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
+    // Open Street Map
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
 }
