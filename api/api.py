@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, Response
-from dbhandler import SmartCursor, createAnimalTable, getAnimalStat
+from dbhandler import SmartCursor, createAnimalTable, getAnimalStat, insertAnimalStat
 import requests
 import os
 
@@ -41,8 +41,13 @@ def getStats(animalName: str) -> APIReturn:
             INTERNAL_SERVER + f"/generatestats/{animalName}",
             timeout=25
         )
+        response.raise_for_status()
+
+        data: dict[str, str | int | bool] = response.json()
+        hp, atk, def_, spd = data["hp"], data["atk"], data["def"], data["spd"]
+        insertAnimalStat(cursor, animalName.lower(), hp, atk, def_, spd)
         
-        return jsonify(response.json()), response.status_code
+        return jsonify(data), response.status_code
 
     except requests.RequestException:
         return jsonify({
