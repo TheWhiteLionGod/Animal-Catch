@@ -33,22 +33,6 @@ def createAnimalTable(smartCursor: SmartCursor) -> None:
         """
     )
 
-    # FOR TESTING: REMOVE FOR RELEASE
-    smartCursor.cursor.execute(
-        """
-        SELECT * FROM animals WHERE name = 'lapris';
-        """
-    )
-
-    row = smartCursor.cursor.fetchone()
-    if row is None:
-        smartCursor.cursor.execute(
-            """
-            INSERT INTO animals (name, hp, atk, def, spd) VALUES (%s, %s, %s, %s, %s);
-            """,
-            ("lapris", 100, 120, 75, 95)
-        )
-
     smartCursor.connection.commit()
 
 def getAnimalStat(smartCursor: SmartCursor, animalName: str) -> dict[str, str | int]:
@@ -70,3 +54,22 @@ def getAnimalStat(smartCursor: SmartCursor, animalName: str) -> dict[str, str | 
         "def": row[4],
         "spd": row[5]
     }
+
+def insertAnimalStat(
+        smartCursor: SmartCursor, 
+        animalName: str, 
+        hp: int, 
+        atk: int, 
+        def_: int,  
+        spd: int
+    ) -> None:
+
+    smartCursor.cursor.execute(
+        """
+        INSERT INTO animals (name, hp, atk, def, spd) 
+        VALUES (%s, %s, %s, %s, %s);
+        """, 
+        (animalName, hp, atk, def_, spd)
+    )
+
+    smartCursor.connection.commit()

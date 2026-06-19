@@ -51,8 +51,3 @@ def generateStats(generator: TextGenerationPipeline, animalName: str) -> dict[st
         return json.loads(raw_text)
     except json.JSONDecodeError:
         raise ValueError(f"Failed to generate stats for {animalName}")
-
-if __name__ == '__main__':
-    generator: TextGenerationPipeline = createGenerator()
-    result: dict[str, str | int] = generateStats(generator, "American Deer")
-    print(result)
