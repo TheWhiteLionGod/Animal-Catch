@@ -1,101 +1,143 @@
 package com.example.animalcatch;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import org.osmdroid.config.Configuration;
-import org.osmdroid.views.MapView;
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider;
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
+import com.google.android.material.button.MaterialButton;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
-    private MapView map = null;
-    private MyLocationNewOverlay locationOverlay;
+    private static final String TAG = "MainActivity";
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 1002;
+
+    private PreviewView viewFinder;
+    private ImageCapture imageCapture;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // Crucial configuration step for osmdroid tile caching
-        Configuration.getInstance().load(getApplicationContext(), getSharedPreferences("osmdroid", MODE_PRIVATE));
         setContentView(R.layout.activity_main);
 
-        map = findViewById(R.id.mapview);
-        map.setBuiltInZoomControls(true);
-        map.setMultiTouchControls(true);
+        viewFinder = findViewById(R.id.viewFinder);
+        MaterialButton btnCapture = findViewById(R.id.btn_capture);
+        MaterialButton btnInventory = findViewById(R.id.btn_inventory);
 
-        // Start map view at a baseline global zoom level
-        map.getController().setZoom(22);
+        if (allPermissionsGranted()) {
+            startCamera();
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA},
+                    CAMERA_PERMISSION_REQUEST_CODE);
+        }
 
-        // Check and request runtime location tracking permissions
-        checkLocationPermissions();
+        btnCapture.setOnClickListener(v -> takePhoto());
+
+        btnInventory.setOnClickListener(v -> {
+            Intent intent = new Intent(this, InventoryActivity.class);
+            startActivity(intent);
+        });
     }
 
-    private void checkLocationPermissions() {
-        if (ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) != PackageManager.PERMISSION_GRANTED) {
+    private void startCamera() {
+        Log.d(TAG, "Starting camera...");
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
+                ProcessCameraProvider.getInstance(this);
 
-            // Request permission from the user
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    LOCATION_PERMISSION_REQUEST_CODE);
-        } else {
-            // Permission already granted, initialize tracking overlay
-            enableUserLocation();
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                bindPreview(cameraProvider);
+            } catch (ExecutionException | InterruptedException e) {
+                Log.e(TAG, "Error starting camera", e);
+                Toast.makeText(this, "Failed to start camera", Toast.LENGTH_SHORT).show();
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    private void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
+        Preview preview = new Preview.Builder().build();
+
+        CameraSelector cameraSelector = new CameraSelector.Builder()
+                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                .build();
+
+        imageCapture = new ImageCapture.Builder().build();
+
+        preview.setSurfaceProvider(viewFinder.getSurfaceProvider());
+
+        try {
+            cameraProvider.unbindAll();
+            cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
+            Log.d(TAG, "Camera bound successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Use case binding failed", e);
+            Toast.makeText(this, "Camera error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    private void enableUserLocation() {
-        // Initialize the location tracking overlay component
-        locationOverlay = new MyLocationNewOverlay(new GpsMyLocationProvider(this), map);
+    private void takePhoto() {
+        if (imageCapture == null) return;
 
-        // Enable device tracking and follow the user's movement on map view
-        locationOverlay.enableMyLocation();
-        locationOverlay.enableFollowLocation();
+        File photoFile = new File(getExternalFilesDir(null),
+                new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
+                        .format(System.currentTimeMillis()) + ".jpg");
 
-        // Inject the tracking layer directly onto our canvas overlay queue
-        map.getOverlays().add(locationOverlay);
+        ImageCapture.OutputFileOptions outputOptions =
+                new ImageCapture.OutputFileOptions.Builder(photoFile).build();
+
+        imageCapture.takePicture(
+                outputOptions,
+                ContextCompat.getMainExecutor(this),
+                new ImageCapture.OnImageSavedCallback() {
+                    @Override
+                    public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                        String msg = "Photo capture succeeded: " + photoFile.getAbsolutePath();
+                        Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, msg);
+                    }
+
+                    @Override
+                    public void onError(@NonNull ImageCaptureException exception) {
+                        Log.e(TAG, "Photo capture failed: " + exception.getMessage(), exception);
+                    }
+                }
+        );
+    }
+
+    private boolean allPermissionsGranted() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
-                enableUserLocation();
-            else
-                Toast.makeText(
-                    this,
-                    "Location permission is required to view your current position.",
-                    Toast.LENGTH_LONG
-                ).show();
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        map.onResume();
-        if (locationOverlay != null)
-            locationOverlay.enableMyLocation();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        map.onPause();
-        if (locationOverlay != null) {
-            locationOverlay.disableMyLocation();
-            locationOverlay.disableFollowLocation();
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (allPermissionsGranted()) {
+                startCamera();
+            } else {
+                Toast.makeText(this, "Camera permission is required.", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 }
