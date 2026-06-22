@@ -43,6 +43,8 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:text="WILD"
                     android:textColor="#E94560"
                     android:textSize="11sp"
@@ -111,6 +113,8 @@
 
                 <TextView
                     android:id="@+id/tv_player_level"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:text="Lv.1"
                     android:textColor="#4CAF50"
                     android:textSize="13sp"
@@ -225,6 +229,8 @@
             android:indeterminateTint="#4CAF50" />
 
         <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="Finding opponent…"
             android:textColor="@android:color/white"
