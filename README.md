@@ -159,20 +159,69 @@ hyena
 
 ```text
 Animal-Catch/
-├── client/
-│   └── app/src/main/java/
-│       └── com/example/animalcatch/
-│           ├── api/
-│           ├── battle/
-│           ├── db/
-│           └── BattleActivity.java
-├── server/
-│   ├── main.py
-│   ├── animalclassifier.py
-│   ├── statgenerator.py
-│   └── requirements.txt
-└── README.md
+│
+├── client/                             # Android application
+│   └── app/
+│       └── src/
+│           └── main/
+│               ├── java/
+│               │   └── com/example/animalcatch/
+│               │       ├── activities/
+│               │       │   ├── MainActivity.java
+│               │       │   ├── BattleActivity.java
+│               │       │   ├── CatchActivity.java
+│               │       │   └── CollectionActivity.java
+│               │       │
+│               │       ├── api/
+│               │       │   ├── ApiClient.java
+│               │       │   ├── AnimalApiService.java
+│               │       │   ├── IdentifyResponse.java
+│               │       │   └── StatsResponse.java
+│               │       │
+│               │       ├── battle/
+│               │       │   ├── BattleAnimal.java
+│               │       │   ├── BattleAI.java
+│               │       │   └── EnemyScaler.java
+│               │       │
+│               │       ├── db/
+│               │       │   ├── AnimalDatabase.java
+│               │       │   ├── AnimalDao.java
+│               │       │   └── AnimalEntity.java
+│               │       │
+│               │       ├── models/
+│               │       ├── adapters/
+│               │       ├── utils/
+│               │       └── wikipedia/
+│               │           ├── WikipediaApiClient.java
+│               │           └── WikipediaSummaryResponse.java
+│               │
+│               ├── res/
+│               │   ├── drawable/
+│               │   ├── layout/
+│               │   ├── mipmap/
+│               │   └── values/
+│               │
+│               └── AndroidManifest.xml
+│
+├── server/                             # Flask AI backend
+│   ├── main.py                         # Flask application
+│   ├── animalclassifier.py             # ViT classification pipeline
+│   ├── statgenerator.py                # Qwen stat generation
+│   ├── requirements.txt
+│   └── models/
+│
+├── docs/                               # Documentation and diagrams
+│   ├── architecture.png
+│   ├── api-flow.png
+│   └── screenshots/
+│
+├── assets/                             # README images and logos
+│
+├── LICENSE
+├── README.md
+└── .gitignore
 ```
+
 
 ---
 
