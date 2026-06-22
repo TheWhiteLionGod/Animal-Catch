@@ -1,3 +1,18 @@
 <resources>
-    <string name="app_name">AnimonGo</string>
+    <string name="app_name">Animal Catch</string>
+
+    <!-- ══ Battle screen ══════════════════════════════════════════════════ -->
+    <string name="label_wild">WILD</string>
+    <string name="label_your_animal">YOURS</string>
+    <string name="label_vs">VS</string>
+    <string name="label_finding_opponent">Finding opponent…</string>
+    <string name="placeholder_enemy_name">Enemy</string>
+    <string name="placeholder_player_name">Your Animal</string>
+    <string name="placeholder_hp">HP: ?</string>
+    <string name="placeholder_level">Lv.1</string>
+    <string name="action_attack">⚔️ Attack</string>
+    <string name="action_defend">🛡️ Defend</string>
+    <string name="action_flee">🏃</string>
+    <string name="desc_enemy_sprite">Enemy animal</string>
+    <string name="desc_player_sprite">Your animal</string>
 </resources>
