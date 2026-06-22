@@ -2,103 +2,195 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0D0D0D">
+    android:background="@drawable/bg_battle_sky">
 
-    <!-- ══ ENEMY HUD (top) ══════════════════════════════════════════════════ -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/card_enemy"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        app:cardBackgroundColor="#1A1A2E"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="6dp"
-        app:strokeColor="#E94560"
-        app:strokeWidth="1dp"
+    <!-- ══ ARENA SCENE ══════════════════════════════════════════════════════ -->
+    <!-- Using vertical weights ensures that the arena and log share the available
+         vertical space proportionally on all screen aspect ratios. -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/arena"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/scroll_log"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintVertical_weight="1.2">
 
-        <LinearLayout
+        <!-- Ground strip -->
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp">
+            android:layout_height="70dp"
+            android:background="@color/battle_ground"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-            <LinearLayout
+        <!-- Enemy platform + sprite (Top-Right Area) -->
+        <View
+            android:id="@+id/platform_enemy"
+            android:layout_width="120dp"
+            android:layout_height="28dp"
+            android:layout_marginEnd="40dp"
+            android:background="@drawable/shape_platform_enemy"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.45" />
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/sprite_enemy_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toTopOf="@id/platform_enemy"
+            app:layout_constraintEnd_toEndOf="@id/platform_enemy"
+            app:layout_constraintStart_toStartOf="@id/platform_enemy">
+
+            <ImageView
+                android:id="@+id/img_enemy"
+                android:layout_width="90dp"
+                android:layout_height="90dp"
+                android:background="@drawable/frame_sprite_enemy"
+                android:contentDescription="@string/desc_enemy_sprite"
+                android:padding="4dp"
+                android:scaleType="centerCrop"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/tv_enemy_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="-6dp"
+                android:background="@drawable/badge_bg_red"
+                android:fontFamily="sans-serif-condensed"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:text="@string/label_wild"
+                android:textColor="@color/enemy_accent"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="@id/img_enemy"
+                app:layout_constraintStart_toStartOf="@id/img_enemy"
+                app:layout_constraintTop_toBottomOf="@id/img_enemy" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Player platform + sprite (Bottom-Left Area) -->
+        <View
+            android:id="@+id/platform_player"
+            android:layout_width="140dp"
+            android:layout_height="32dp"
+            android:layout_marginStart="32dp"
+            android:background="@drawable/shape_platform_player"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.85" />
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/sprite_player_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintBottom_toTopOf="@id/platform_player"
+            app:layout_constraintEnd_toEndOf="@id/platform_player"
+            app:layout_constraintStart_toStartOf="@id/platform_player">
+
+            <ImageView
+                android:id="@+id/img_player"
+                android:layout_width="115dp"
+                android:layout_height="115dp"
+                android:background="@drawable/frame_sprite_player"
+                android:contentDescription="@string/desc_player_sprite"
+                android:padding="4dp"
+                android:scaleType="centerCrop"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/tv_player_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="-6dp"
+                android:background="@drawable/badge_bg_green"
+                android:fontFamily="sans-serif-condensed"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:text="@string/label_your_animal"
+                android:textColor="@color/player_accent"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="@id/img_player"
+                app:layout_constraintStart_toStartOf="@id/img_player"
+                app:layout_constraintTop_toBottomOf="@id/img_player" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Enemy HUD (Top-Left) -->
+        <LinearLayout
+            android:id="@+id/plaque_enemy"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_plaque_enemy"
+            android:orientation="vertical"
+            android:padding="10dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintWidth_percent="0.55">
+
+            <TextView
+                android:id="@+id/tv_enemy_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/tv_enemy_name"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Enemy"
-                    android:textColor="#E94560"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="WILD"
-                    android:textColor="#E94560"
-                    android:textSize="11sp"
-                    android:background="@drawable/badge_bg_red"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp" />
-            </LinearLayout>
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-condensed"
+                android:maxLines="1"
+                android:text="@string/placeholder_enemy_name"
+                android:textColor="@color/plaque_text"
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
             <ProgressBar
                 android:id="@+id/pb_enemy_hp"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="10dp"
-                android:layout_marginTop="6dp"
-                android:progressTint="#E94560"
-                android:progressBackgroundTint="#333333"
+                android:layout_height="8dp"
+                android:layout_marginTop="4dp"
                 android:max="100"
-                android:progress="100" />
+                android:progress="100"
+                android:progressDrawable="@drawable/progress_hp_bar" />
 
             <TextView
                 android:id="@+id/tv_enemy_hp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="HP: ?"
-                android:textColor="#CCCCCC"
-                android:textSize="13sp" />
+                android:layout_gravity="end"
+                android:layout_marginTop="2dp"
+                android:fontFamily="monospace"
+                android:text="@string/placeholder_hp"
+                android:textColor="@color/plaque_text_dim"
+                android:textSize="11sp" />
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
 
-    <!-- ══ PLAYER HUD (below enemy) ════════════════════════════════════════ -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/card_player"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        app:cardBackgroundColor="#1A2E1A"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="6dp"
-        app:strokeColor="#4CAF50"
-        app:strokeWidth="1dp"
-        app:layout_constraintTop_toBottomOf="@id/card_enemy"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
+        <!-- Player HUD (Bottom-Right, but within the Arena area) -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/plaque_player"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_plaque_player"
             android:orientation="vertical"
-            android:padding="12dp">
+            android:padding="10dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintWidth_percent="0.55">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <TextView
@@ -106,133 +198,170 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Your Animal"
-                    android:textColor="#4CAF50"
-                    android:textSize="18sp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-condensed"
+                    android:maxLines="1"
+                    android:text="@string/placeholder_player_name"
+                    android:textColor="@color/plaque_text"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tv_player_level"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Lv.1"
-                    android:textColor="#4CAF50"
-                    android:textSize="13sp"
+                    android:layout_marginStart="6dp"
                     android:background="@drawable/badge_bg_green"
                     android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp" />
+                    android:paddingVertical="1dp"
+                    android:text="@string/placeholder_level"
+                    android:textColor="@color/player_accent"
+                    android:textSize="11sp" />
             </LinearLayout>
 
             <ProgressBar
                 android:id="@+id/pb_player_hp"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="10dp"
-                android:layout_marginTop="6dp"
-                android:progressTint="#4CAF50"
-                android:progressBackgroundTint="#333333"
+                android:layout_height="8dp"
+                android:layout_marginTop="4dp"
                 android:max="100"
-                android:progress="100" />
+                android:progress="100"
+                android:progressDrawable="@drawable/progress_hp_bar" />
 
             <TextView
                 android:id="@+id/tv_player_hp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="HP: ?"
-                android:textColor="#CCCCCC"
-                android:textSize="13sp" />
+                android:layout_gravity="end"
+                android:layout_marginTop="2dp"
+                android:fontFamily="monospace"
+                android:text="@string/placeholder_hp"
+                android:textColor="@color/plaque_text_dim"
+                android:textSize="11sp" />
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+
+        <!-- VS Badge -->
+        <TextView
+            android:id="@+id/tv_vs_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/shape_vs_badge"
+            android:fontFamily="sans-serif-black"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="8dp"
+            android:rotation="-8"
+            android:text="@string/label_vs"
+            android:textColor="@color/battle_ground"
+            android:textSize="28sp"
+            android:visibility="invisible"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- ══ BATTLE LOG ═══════════════════════════════════════════════════════ -->
     <ScrollView
         android:id="@+id/scroll_log"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_margin="16dp"
-        android:background="#111111"
-        android:padding="8dp"
-        app:layout_constraintTop_toBottomOf="@id/card_player"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp"
         app:layout_constraintBottom_toTopOf="@id/btn_attack"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/arena"
+        app:layout_constraintVertical_weight="0.8">
 
         <TextView
             android:id="@+id/tv_battle_log"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@drawable/bg_battle_log"
             android:fontFamily="monospace"
             android:lineSpacingExtra="4dp"
-            android:text=""
-            android:textColor="#DDDDDD"
-            android:textSize="13sp" />
+            android:padding="12dp"
+            android:textColor="@color/log_text"
+            android:textSize="12.5sp"
+            tools:text="Battle log entries..." />
     </ScrollView>
 
     <!-- ══ ACTION BUTTONS ═══════════════════════════════════════════════════ -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_attack"
         android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:layout_margin="8dp"
-        android:text="⚔️ Attack"
-        android:textSize="16sp"
-        app:backgroundTint="#E94560"
+        android:layout_height="54dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/action_attack"
+        android:textAllCaps="false"
+        android:textSize="15sp"
+        app:backgroundTint="@color/action_attack"
+        app:cornerRadius="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/btn_defend"
-        app:layout_constraintWidth_percent="0.4" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintWidth_percent="0.32" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_defend"
         android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:layout_margin="8dp"
-        android:layout_marginBottom="48dp"
-        android:text="🛡️ Defend"
-        android:textSize="16sp"
-        app:backgroundTint="#1565C0"
+        android:layout_height="54dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/action_defend"
+        android:textAllCaps="false"
+        android:textSize="15sp"
+        app:backgroundTint="@color/action_defend"
+        app:cornerRadius="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/btn_flee"
         app:layout_constraintStart_toEndOf="@id/btn_attack"
-        app:layout_constraintWidth_percent="0.4" />
+        app:layout_constraintWidth_percent="0.32" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_flee"
         android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:layout_margin="8dp"
-        android:text="🏃"
-        android:textSize="20sp"
-        app:backgroundTint="#444444"
+        android:layout_height="54dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/action_flee"
+        android:textAllCaps="false"
+        android:textSize="15sp"
+        app:backgroundTint="@color/action_flee"
+        app:cornerRadius="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@id/btn_defend"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintWidth_percent="0.25" />
 
-    <!-- Loading overlay while fetching enemy stats -->
+    <!-- Loading overlay -->
     <LinearLayout
         android:id="@+id/loading_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#CC000000"
+        android:background="#D9120C1E"
         android:gravity="center"
         android:orientation="vertical"
         android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toTopOf="parent">
 
         <ProgressBar
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:indeterminateTint="#4CAF50" />
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:indeterminateTint="@color/player_accent" />
 
         <TextView
+            android:id="@+id/tv_loading_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Finding opponent…"
+            android:layout_marginTop="16dp"
+            android:fontFamily="sans-serif-condensed"
+            android:text="@string/label_finding_opponent"
             android:textColor="@android:color/white"
             android:textSize="15sp" />
     </LinearLayout>

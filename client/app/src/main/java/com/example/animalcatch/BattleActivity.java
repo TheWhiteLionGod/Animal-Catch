@@ -1,29 +1,37 @@
 package com.example.animalcatch;
 
-import android.content.Intent;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.view.animation.AnimationUtils;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
+import com.bumptech.glide.Glide;
 import com.example.animalcatch.api.ApiClient;
 import com.example.animalcatch.api.StatsResponse;
+import com.example.animalcatch.api.WikipediaApiClient;
+import com.example.animalcatch.api.WikipediaSummaryResponse;
 import com.example.animalcatch.battle.BattleAI;
 import com.example.animalcatch.battle.BattleAI.Action;
 import com.example.animalcatch.battle.BattleAnimal;
+import com.example.animalcatch.battle.EnemyScaler;
 import com.example.animalcatch.db.AnimalDao;
 import com.example.animalcatch.db.AnimalEntity;
 import com.example.animalcatch.db.AppDatabase;
 import com.google.android.material.button.MaterialButton;
 
+import java.io.File;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Executors;
@@ -45,14 +53,17 @@ public class BattleActivity extends AppCompatActivity {
     };
 
     // ── UI ────────────────────────────────────────────────────────────────────
+    private ImageView imgPlayer, imgEnemy;
     private TextView tvPlayerName, tvPlayerHp, tvPlayerLevel;
     private ProgressBar pbPlayerHp;
     private TextView tvEnemyName, tvEnemyHp;
     private ProgressBar pbEnemyHp;
+    private TextView tvVsBadge;
     private TextView tvBattleLog;
     private ScrollView scrollLog;
     private MaterialButton btnAttack, btnDefend, btnFlee;
     private View loadingOverlay;
+    private View spritePlayerGroup, spriteEnemyGroup;
 
     // ── State ─────────────────────────────────────────────────────────────────
     private BattleAnimal player;
@@ -68,6 +79,7 @@ public class BattleActivity extends AppCompatActivity {
         setContentView(R.layout.activity_battle);
 
         bindViews();
+        applySystemBarInsets();
 
         animalDao = AppDatabase.getInstance(this).animalDao();
         ai = new BattleAI();
@@ -75,9 +87,39 @@ public class BattleActivity extends AppCompatActivity {
         pickPlayerAndEnemy();
     }
 
+    /**
+     * On API 35+ (targetSdk 35+), the app draws edge-to-edge by default and
+     * content can be drawn underneath the system navigation bar / gesture
+     * area. That bar's height varies by device (3-button nav vs gesture nav),
+     * which is why this only showed up "sometimes" depending on the phone.
+     * We push the action buttons up by the system bar inset so they're never
+     * obscured, while letting the background art still extend full-bleed.
+     */
+    private void applySystemBarInsets() {
+        View root = findViewById(android.R.id.content);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+            int extraBottom = systemBars.bottom;
+            addBottomMargin(btnAttack, extraBottom);
+            addBottomMargin(btnDefend, extraBottom);
+            addBottomMargin(btnFlee, extraBottom);
+            return insets;
+        });
+    }
+
+    private void addBottomMargin(View view, int extraBottomPx) {
+        ConstraintLayout.LayoutParams lp =
+                (ConstraintLayout.LayoutParams) view.getLayoutParams();
+        lp.bottomMargin = lp.bottomMargin + extraBottomPx;
+        view.setLayoutParams(lp);
+    }
+
     // ── Setup ─────────────────────────────────────────────────────────────────
 
     private void bindViews() {
+        imgPlayer     = findViewById(R.id.img_player);
+        imgEnemy      = findViewById(R.id.img_enemy);
         tvPlayerName  = findViewById(R.id.tv_player_name);
         tvPlayerHp    = findViewById(R.id.tv_player_hp);
         tvPlayerLevel = findViewById(R.id.tv_player_level);
@@ -85,12 +127,15 @@ public class BattleActivity extends AppCompatActivity {
         tvEnemyName   = findViewById(R.id.tv_enemy_name);
         tvEnemyHp     = findViewById(R.id.tv_enemy_hp);
         pbEnemyHp     = findViewById(R.id.pb_enemy_hp);
+        tvVsBadge     = findViewById(R.id.tv_vs_badge);
         tvBattleLog   = findViewById(R.id.tv_battle_log);
         scrollLog     = findViewById(R.id.scroll_log);
         btnAttack     = findViewById(R.id.btn_attack);
         btnDefend     = findViewById(R.id.btn_defend);
         btnFlee       = findViewById(R.id.btn_flee);
         loadingOverlay = findViewById(R.id.loading_overlay);
+        spritePlayerGroup = findViewById(R.id.sprite_player_group);
+        spriteEnemyGroup  = findViewById(R.id.sprite_enemy_group);
 
         btnAttack.setOnClickListener(v -> playerTurn(false));
         btnDefend.setOnClickListener(v -> playerTurn(true));
@@ -119,14 +164,30 @@ public class BattleActivity extends AppCompatActivity {
 
             runOnUiThread(() -> {
                 updatePlayerHud();
+                loadPlayerSprite();
                 fetchEnemyFromApi();
             });
         });
     }
 
-    /** Pick a random wild animal and load its stats from the API. */
+    /** Load the player's saved catch photo into the arena sprite. */
+    private void loadPlayerSprite() {
+        String path = playerEntity.getPhotoPath();
+        Glide.with(this)
+                .load(path != null ? new File(path) : null)
+                .placeholder(R.drawable.ic_paw_placeholder)
+                .error(R.drawable.ic_paw_placeholder)
+                .circleCrop()
+                .into(imgPlayer);
+    }
+
+    /**
+     * Pick a random wild animal, load its base stats from the game API, scale
+     * them to the player's level, then fetch a real photo from Wikipedia.
+     */
     private void fetchEnemyFromApi() {
         String enemyName = WILD_ANIMALS[new Random().nextInt(WILD_ANIMALS.length)];
+        int playerLevel = playerEntity.getLevel();
 
         ApiClient.getApiService().getStats(enemyName).enqueue(new Callback<StatsResponse>() {
             @Override
@@ -136,15 +197,29 @@ public class BattleActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null
                         && response.body().isSuccess()) {
                     StatsResponse s = response.body();
-                    enemy = new BattleAnimal(s.getName(), s.getHp(), s.getAtk(), s.getDef(), s.getSpd());
+
+                    // Scale the wild animal's stats to match the player's level
+                    // so battles stay challenging as the player grows stronger.
+                    int scaledHp  = EnemyScaler.scaleHp(s.getHp(), playerLevel);
+                    int scaledAtk = EnemyScaler.scaleAtk(s.getAtk(), playerLevel);
+                    int scaledDef = EnemyScaler.scaleDef(s.getDef(), playerLevel);
+                    int scaledSpd = EnemyScaler.scaleSpd(s.getSpd(), playerLevel);
+
+                    enemy = new BattleAnimal(s.getName(), scaledHp, scaledAtk, scaledDef, scaledSpd);
                     updateEnemyHud();
+                    loadEnemySprite(s.getName());
                     setButtonsEnabled(true);
+                    playIntroAnimation();
+
                     appendLog("⚔️ A wild " + enemy.getName() + " appeared!");
                     appendLog("📋 " + enemy.getName()
                             + " — HP:" + enemy.getMaxHp()
                             + " ATK:" + enemy.getAtk()
                             + " DEF:" + enemy.getDef()
                             + " SPD:" + enemy.getSpd());
+                    if (playerLevel > 1) {
+                        appendLog("📈 Scaled to your Lv." + playerLevel + " animal!");
+                    }
                     appendLog("──────────────────");
                     appendLog("Your turn! Choose an action.");
                 } else {
@@ -162,6 +237,93 @@ public class BattleActivity extends AppCompatActivity {
         });
     }
 
+    /** Fetch a real photo of the wild animal's species from Wikipedia. */
+    private void loadEnemySprite(String animalName) {
+        Glide.with(this)
+                .load(R.drawable.ic_paw_placeholder)
+                .into(imgEnemy);
+
+        // Wikipedia's REST summary API uses the canonical article title.
+        // Some of our wild animal names need disambiguation suffixes.
+        String title = toWikipediaTitle(animalName);
+
+        WikipediaApiClient.getService().getSummary(title)
+                .enqueue(new Callback<WikipediaSummaryResponse>() {
+                    @Override
+                    public void onResponse(Call<WikipediaSummaryResponse> call,
+                                           Response<WikipediaSummaryResponse> response) {
+                        if (isFinishing() || isDestroyed()) return;
+
+                        if (!response.isSuccessful() || response.body() == null) {
+                            appendLog("🖼️ No enemy photo (HTTP " + response.code() + ")");
+                            return;
+                        }
+
+                        String url = response.body().getThumbnailUrl();
+
+                        // Enforce HTTPS — Glide blocks plain HTTP on API 28+
+                        if (url != null && url.startsWith("http://")) {
+                            url = url.replaceFirst("http://", "https://");
+                        }
+
+                        if (url != null && !url.isEmpty()) {
+                            final String finalUrl = url;
+                            Glide.with(BattleActivity.this)
+                                    .load(finalUrl)
+                                    .placeholder(R.drawable.ic_paw_placeholder)
+                                    .error(R.drawable.ic_paw_placeholder)
+                                    .circleCrop()
+                                    .into(imgEnemy);
+                        } else {
+                            appendLog("🖼️ Wikipedia returned no thumbnail for " + title);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<WikipediaSummaryResponse> call, Throwable t) {
+                        if (isFinishing() || isDestroyed()) return;
+                        appendLog("🖼️ Photo load failed: " + t.getMessage());
+                    }
+                });
+    }
+
+    /**
+     * Maps game animal names to their exact Wikipedia article titles.
+     * "Panther" and "Cheetah" in particular don't resolve cleanly from
+     * the summary endpoint without the right title.
+     */
+    private String toWikipediaTitle(String animalName) {
+        switch (animalName.toLowerCase()) {
+            case "panther":   return "Panthera";          // "Panther" is a redirect
+            case "bear":      return "Bear";
+            case "wolf":      return "Wolf";
+            case "eagle":     return "Eagle";
+            case "shark":     return "Shark";
+            case "lion":      return "Lion";
+            case "tiger":     return "Tiger";
+            case "crocodile": return "Crocodile";
+            case "gorilla":   return "Gorilla";
+            case "cheetah":   return "Cheetah";
+            case "rhino":     return "Rhinoceros";
+            case "hyena":     return "Hyena";
+            default:
+                return animalName.substring(0, 1).toUpperCase()
+                        + animalName.substring(1).toLowerCase();
+        }
+    }
+
+
+    /** Plays the sprite entrance + "VS" badge moment once both fighters are loaded. */
+    private void playIntroAnimation() {
+        spriteEnemyGroup.startAnimation(AnimationUtils.loadAnimation(this, R.anim.enter_from_right));
+        spritePlayerGroup.startAnimation(AnimationUtils.loadAnimation(this, R.anim.enter_from_left));
+
+        tvVsBadge.setVisibility(View.VISIBLE);
+        tvVsBadge.startAnimation(AnimationUtils.loadAnimation(this, R.anim.vs_badge_pop));
+        new Handler(Looper.getMainLooper()).postDelayed(
+                () -> tvVsBadge.setVisibility(View.INVISIBLE), 1150);
+    }
+
     // ── Turn logic ────────────────────────────────────────────────────────────
 
     /**
@@ -177,8 +339,9 @@ public class BattleActivity extends AppCompatActivity {
         } else {
             int dmg = enemy.receiveDamage(player);
             appendLog("⚔️ " + player.getName() + " attacks for " + dmg + " damage!");
+            spritePlayerGroup.startAnimation(AnimationUtils.loadAnimation(this, R.anim.lunge_left));
             updateEnemyHud();
-            shakeView(tvEnemyHp);
+            shakeView(spriteEnemyGroup);
         }
 
         if (enemy.isDefeated()) {
@@ -199,8 +362,9 @@ public class BattleActivity extends AppCompatActivity {
         } else {
             int dmg = player.receiveDamage(enemy);
             appendLog("💥 " + enemy.getName() + " attacks for " + dmg + " damage!");
+            spriteEnemyGroup.startAnimation(AnimationUtils.loadAnimation(this, R.anim.lunge_right));
             updatePlayerHud();
-            shakeView(tvPlayerHp);
+            shakeView(spritePlayerGroup);
         }
 
         if (player.isDefeated()) {
@@ -290,6 +454,7 @@ public class BattleActivity extends AppCompatActivity {
         tvPlayerHp.setText("HP: " + player.getCurrentHp() + "/" + player.getMaxHp());
         pbPlayerHp.setMax(player.getMaxHp());
         pbPlayerHp.setProgress(player.getCurrentHp());
+        tintHpBar(pbPlayerHp, player.getHpFraction());
     }
 
     private void updateEnemyHud() {
@@ -297,6 +462,38 @@ public class BattleActivity extends AppCompatActivity {
         tvEnemyHp.setText("HP: " + enemy.getCurrentHp() + "/" + enemy.getMaxHp());
         pbEnemyHp.setMax(enemy.getMaxHp());
         pbEnemyHp.setProgress(enemy.getCurrentHp());
+        tintHpBar(pbEnemyHp, enemy.getHpFraction());
+    }
+
+    /** Shifts an HP bar from green → amber → red as the animal's health drops. */
+    private void tintHpBar(ProgressBar bar, float hpFraction) {
+        int colorRes;
+        if (hpFraction > 0.5f) {
+            colorRes = R.color.hp_high;
+        } else if (hpFraction > 0.2f) {
+            colorRes = R.color.hp_mid;
+        } else {
+            colorRes = R.color.hp_low;
+        }
+
+        // Mutate the clip layer's color directly — more reliable across
+        // devices than tint lists when the progress drawable is a custom
+        // layer-list (as ours is here). mutate() ensures this bar's drawable
+        // instance doesn't share state with the other HP bar.
+        android.graphics.drawable.Drawable progressLayer =
+                bar.getProgressDrawable();
+        if (progressLayer != null) {
+            progressLayer = progressLayer.mutate();
+            bar.setProgressDrawable(progressLayer);
+        }
+        if (progressLayer instanceof android.graphics.drawable.LayerDrawable) {
+            android.graphics.drawable.Drawable clip =
+                    ((android.graphics.drawable.LayerDrawable) progressLayer)
+                            .findDrawableByLayerId(android.R.id.progress);
+            if (clip != null) {
+                clip.setTint(getColor(colorRes));
+            }
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

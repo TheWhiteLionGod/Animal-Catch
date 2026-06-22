@@ -2,4 +2,36 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- ══ Battle arena palette ═══════════════════════════════════════════
+         A dusk-lit clearing: a deep indigo sky fading to a warm ember
+         horizon, with the enemy (wild, untamed) in crimson and the
+         player (tamed, loyal) in jade. ════════════════════════════════ -->
+    <color name="battle_sky_top">#1B1430</color>
+    <color name="battle_sky_mid">#2E1F45</color>
+    <color name="battle_sky_horizon">#4A2A3D</color>
+    <color name="battle_ground">#120C1E</color>
+
+    <color name="enemy_accent">#FF5C72</color>
+    <color name="enemy_accent_dim">#7A2E3A</color>
+    <color name="player_accent">#3DDC97</color>
+    <color name="player_accent_dim">#1F5C46</color>
+
+    <color name="plaque_bg">#E8E2F0</color>
+    <color name="plaque_text">#241A33</color>
+    <color name="plaque_text_dim">#6B5E7D</color>
+
+    <color name="hp_bar_track">#2A1F3A</color>
+    <color name="hp_high">#3DDC97</color>
+    <color name="hp_mid">#F4C150</color>
+    <color name="hp_low">#FF5C72</color>
+
+    <color name="action_attack">#FF5C72</color>
+    <color name="action_defend">#4E8FE0</color>
+    <color name="action_flee">#5A4D70</color>
+
+    <color name="log_bg">#160F24</color>
+    <color name="log_text">#C9C1DA</color>
+
+    <color name="vs_badge">#F4C150</color>
 </resources>
