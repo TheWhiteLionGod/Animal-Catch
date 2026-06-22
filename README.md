@@ -25,22 +25,23 @@ A mobile Android app that encourages users to go outside, photograph real animal
 
 ## Overview
 
-Animal Catch combines real-world exploration with turn-based RPG mechanics. Players photograph animals they find outside — a dog in the park, a bird on a fence, a squirrel in a tree — and those animals become their fighters. The app fetches live stats for wild opponents from a custom Python backend, scales them to match the player's level, and pulls real photos from Wikipedia so every enemy looks like the actual species.
+Animal Catch combines real-world exploration with turn-based RPG mechanics. Players photograph animals they find outside — a dog in the park, a bird on a fence, a squirrel in a tree — and a Vision Transformer model automatically identifies the species. A language model then generates balanced RPG stats for that animal based on its real-world traits. The caught animal joins the player's roster and can be used in battles against wild opponents whose stats are also LLM-generated and scaled to the player's current level.
 
-The core loop is: **go outside → catch → battle → level up → repeat**.
+The core loop is: **go outside → photograph → AI identifies and stats the animal → battle → level up → repeat**.
 
 ---
 
 ## Features
 
 - Catch real animals by photographing them with your device camera
+- AI-powered animal identification using a Vision Transformer model trained on iNaturalist 21
+- LLM-generated RPG stats (HP, ATK, DEF, SPD) tailored to each animal species
 - Turn-based battles with Attack, Defend, and Flee actions
 - Rule-based enemy AI that adapts strategy based on remaining HP
 - XP and leveling system with stat growth on level-up
 - Wild enemy stats scaled dynamically to the player's level
 - Enemy sprite images fetched live from the Wikipedia API
 - Local animal collection persisted with Room (SQLite)
-- Live animal base stats served from a hosted Python backend
 - Entrance animations and VS badge for battle start
 - HP bars that shift color from green to amber to red as health drops
 
@@ -48,85 +49,114 @@ The core loop is: **go outside → catch → battle → level up → repeat**.
 
 ## AI Architecture
 
-### Inputs
+The app uses two separate AI models running on the Python backend, plus a rule-based decision engine on the client side.
 
-| Input | Source | Description |
-|---|---|---|
-| Animal photo | Device camera | Player photographs a real animal to catch it |
-| Animal name | Player text entry | Used to look up base stats from the backend |
-| Wild animal name | Randomly selected in-app | One of 12 species picked per battle |
-| Player level | Room database | Used to scale enemy stats appropriately |
+### Pipeline 1 — Animal Identification (Catching)
 
-### AI Capability Used
+**Input:** A photo taken by the player on their device camera, sent as a POST request to `/identify`.
 
-Animal Catch uses a **rule-based AI system** (not a machine learning model) to drive enemy decision-making during battle. This is an explicit, deterministic decision tree rather than a trained neural network.
+**AI capability:** Image classification. The server runs a Vision Transformer model (`timm/vit_large_patch14_clip_336.laion2b_ft_augreg_inat21`) via Hugging Face Transformers, which was trained on the iNaturalist 21 wildlife dataset and classifies images into animal species by scientific name.
 
-The enemy AI observes a single input — its own current HP percentage — and selects an action according to fixed probability thresholds:
+**Processing:**
+1. The image is decoded and converted to RGB on the server.
+2. The ViT model runs inference and returns a ranked list of species predictions with confidence scores.
+3. The top prediction (highest confidence score) is selected — this is a scientific name (e.g. `Canis lupus familiaris`).
+4. The scientific name is resolved to an English common name by querying the GBIF Species API (`/species/match` then `/species/{id}/vernacularNames`).
+5. The common name is returned to the Android client.
 
+**Output:** The common English name of the identified animal (e.g. `wolf`, `golden eagle`), which becomes the name of the caught animal stored in Room.
+
+---
+
+### Pipeline 2 — Stat Generation (Battle Prep)
+
+**Input:** An animal name string sent to `GET /generatestats/{animalName}`.
+
+**AI capability:** Text generation / structured data generation. The server runs Qwen 2.5 1.5B Instruct, a small language model, prompted to act as an RPG game balancing engine.
+
+**Processing:**
+1. The server constructs a two-message prompt: a system message instructing the model to output only a JSON object with no extra text, and a user message asking for RPG stats (1–100) for the given animal name.
+2. The model generates a response with `temperature=0.1` and `do_sample=False` to keep output deterministic and well-formed.
+3. Any markdown code fences are stripped from the output.
+4. The raw text is parsed as JSON into `{name, hp, atk, def, spd}`.
+5. The stats are returned to the Android client.
+6. `EnemyScaler` on the client multiplies the base stats by a factor derived from the player's current level before the battle begins.
+
+**Output:** Scaled HP, ATK, DEF, and SPD values displayed in the enemy HUD and used for all damage calculations during the battle.
+
+---
+
+### Pipeline 3 — Battle AI (Enemy Decision-Making)
+
+**Input:** The enemy's current HP as a fraction of its maximum, read each turn by `BattleAI.decideAction()`.
+
+**AI capability:** Rule-based game agent. No machine learning is involved — this is an explicit probability decision tree running entirely on the Android client.
+
+**Processing:**
 ```
 HP > 60%  ->  Attack 80% of the time, Defend 20%
 HP 30-60% ->  Attack 60% of the time, Defend 40%
-HP < 30%  ->  Attack 90% of the time, Defend 10% (desperate all-out mode)
+HP < 30%  ->  Attack 90% of the time, Defend 10%
 ```
 
-This gives the enemy a coherent, readable personality: it plays cautiously at mid-health, and throws caution to the wind when it is nearly defeated.
+**Output:** An ATTACK or DEFEND action applied each enemy turn, described in the battle log.
 
-### Processing
+---
 
-1. The Android client randomly selects a wild animal species from a hardcoded pool of 12.
-2. It calls the Python backend (`GET /stats/{animal}`) to retrieve base HP, ATK, DEF, and SPD.
-3. The `EnemyScaler` class multiplies those base stats by a factor derived from the player's current level, so encounters stay challenging as the player progresses.
-4. On each enemy turn, `BattleAI.decideAction()` reads the enemy's `getHpFraction()` value and rolls a random double to select ATTACK or DEFEND according to the probability table above.
-5. A Wikipedia REST API call (`/page/summary/{title}`) fetches a real photo of the species to display as the enemy sprite.
+### Summary of Inputs and Outputs
 
-### Outputs
-
-| Output | Description |
-|---|---|
-| Enemy stats | Scaled HP, ATK, DEF, SPD shown in the enemy HUD |
-| Enemy sprite | Real Wikipedia photo of the species, loaded via Glide |
-| Battle log text | Turn-by-turn narrative of actions and damage |
-| XP and level-up | Awarded to the player's animal after the battle ends |
-| Stat increases | HP +10, ATK +3, DEF +2, SPD +2 applied on level-up |
+| Stage | Input | Output |
+|---|---|---|
+| Catch | Player camera photo | Common animal name |
+| Stat generation | Animal name string | HP, ATK, DEF, SPD (1-100) |
+| Enemy scaling | Base stats + player level | Scaled stats for the battle |
+| Battle AI | Enemy HP fraction | ATTACK or DEFEND action |
+| Enemy sprite | Animal name | Wikipedia thumbnail URL, displayed via Glide |
 
 ---
 
 ## Responsible AI
 
-### Risk: Over-reliance on a rule-based AI creating an unfair or frustrating experience
+### Risk: Language model generating unbalanced or malformed stats
 
-The enemy AI's low-HP behavior (90% attack rate) is intentionally aggressive, which could frustrate newer players if their animal is already weak. To mitigate this, the `EnemyScaler` caps how steeply stats grow relative to the player's level, ensuring a baseline level of fairness regardless of how the AI behaves in a given turn.
+The Qwen model could produce stats that are wildly unbalanced (e.g. a rabbit with 100 ATK and 1 HP) or fail to return valid JSON entirely, which would either break the battle or make it trivially easy or impossible. This is mitigated in three ways: the system prompt strictly instructs the model to output only a valid JSON object with no extra text; `temperature=0.1` with `do_sample=False` keeps the output near-deterministic and well-structured; and the server wraps JSON parsing in a try/except that returns a clean error response if parsing fails, so the client can handle it gracefully rather than crash.
 
-Additionally, because the AI logic is fully deterministic and readable (a simple if/else probability tree rather than a black-box model), its behavior can be inspected, tuned, and explained to users. There is no hidden or emergent behavior — if the enemy feels unfair, the exact line of code responsible can be found and adjusted.
+### Risk: Image classifier misidentifying an animal
 
-### Risk: Misinformation from Wikipedia content
-
-The app fetches enemy sprites and could theoretically fetch misleading or vandalized Wikipedia images. This is mitigated by only consuming the thumbnail field of the Wikipedia page summary endpoint, not any text content. Images are displayed as decorative sprites only — no Wikipedia text is ever shown to the user as factual information within the app.
+The ViT model may confidently misclassify an animal — labeling a dog as a wolf, for example — which would give the caught animal an incorrect name and potentially misleading stats. Since the classification result directly determines what gets stored in the player's collection, a wrong label sticks permanently. This is partially mitigated by using a large, high-accuracy model trained on iNaturalist 21 (a specialist wildlife dataset), and by the fact that the game consequence of a misidentification is minor — a wrongly named animal still functions identically in battle.
 
 ### Risk: Exclusion of users without access to outdoor spaces
 
-The app's core loop requires going outside to photograph animals. Users in urban environments with limited wildlife, or users with mobility restrictions, may find it harder to catch animals. This is a design-level accessibility consideration that future versions could address by allowing a broader definition of "animal" (pets, zoo visits, etc.) or by providing a small set of starter animals that do not require a photo.
+The app's core loop requires going outside to photograph real animals. Users in dense urban environments, users with mobility restrictions, or users in regions with limited accessible wildlife may find the catching mechanic difficult to engage with. Future versions could broaden the definition of a valid catch to include pets, zoo visits, or nature documentaries to reduce this barrier.
 
 ---
 
 ## AI Tools Used
 
-| Tool | Purpose | Cost |
-|---|---|---|
-| Rule-based AI (custom Java) | Enemy battle decision-making | Free — written from scratch |
-| Wikipedia REST API | Fetching real animal photos for enemy sprites | Free |
-| Claude (Anthropic) | AI coding assistance during development | Free tier / Paid |
-| Custom Python backend | Serving animal base stats | Free (hosted on Render free tier) |
-
-No machine learning models, trained classifiers, or LLM inference calls are made at runtime inside the app. All AI behavior in the live app is the rule-based `BattleAI` class.
+| Tool | Model / Version | Purpose | Cost |
+|---|---|---|---|
+| Hugging Face Transformers — image classification | `timm/vit_large_patch14_clip_336.laion2b_ft_augreg_inat21` | Identifies animal species from player photos | Free |
+| Hugging Face Transformers — text generation | `Qwen/Qwen2.5-1.5B-Instruct` | Generates RPG stats for any animal name | Free |
+| GBIF Species API | REST API | Converts scientific species names to English common names | Free |
+| Wikipedia REST API | `/page/summary/{title}` | Fetches real animal photos for enemy sprites | Free |
+| Rule-based BattleAI | Custom Java (no model) | Enemy turn decision-making during battle | Free |
+| Claude (Anthropic) | Claude Sonnet | AI coding assistance during development | Free tier / Paid |
 
 ---
 
 ## Data Sources
 
-### Animal Base Stats — Custom Backend (Synthetic Data)
+### Image Classification Training Data — iNaturalist 21
 
-The Python backend at `animal-catch.onrender.com` serves base stat values (HP, ATK, DEF, SPD) for each wild animal species. These stats are **hand-authored / synthetic** — they were designed to feel balanced and thematically appropriate for each species rather than derived from any biological dataset. For example, a shark has high ATK and HP; a cheetah has high SPD; a rhino has high DEF.
+The ViT model used for animal identification was pre-trained on iNaturalist 21, a large public dataset of wildlife photographs labeled with scientific species names. It contains over 2.7 million images across 10,000 species, curated by the citizen science platform iNaturalist. The model was not fine-tuned for this project — the pre-trained checkpoint is used directly via Hugging Face.
+
+### Animal Base Stats — Synthetic (LLM-Generated)
+
+Stats are not hardcoded. Each time a battle begins, the server prompts the Qwen 2.5 1.5B model to reason about the animal's real-world traits and produce balanced RPG numbers between 1 and 100. The stats are synthetic in the sense that they are generated on-demand rather than pulled from a database, but they are grounded in the model's knowledge of each species. A wolf will consistently receive higher ATK and SPD than a tortoise, for example, because the model encodes that knowledge from its training data.
+
+### Species Name Resolution — GBIF Species API
+
+The Global Biodiversity Information Facility (GBIF) API is used to convert scientific species names (output by the ViT classifier) into English common names. GBIF is a free, open-access biodiversity data platform maintained by an international network of institutions. No API key is required.
 
 ### Animal Photos — Wikipedia REST API
 
@@ -136,22 +166,22 @@ Enemy sprite images are fetched at runtime from the Wikipedia page summary endpo
 https://en.wikipedia.org/api/rest_v1/page/summary/{AnimalName}
 ```
 
-The `thumbnail.source` field of the response is used directly as the image URL. Wikipedia content is freely licensed under Creative Commons. No images are stored server-side or in the app's local database — they are fetched fresh each battle.
+The `thumbnail.source` field is used as the image URL. Wikipedia content is freely licensed under Creative Commons. No images are stored server-side or in the app's local database — they are fetched fresh each battle.
 
 ### Player Animal Photos — Device Camera (User-Generated)
 
-Photos taken by the player are stored locally on the device via the Android file system. The file path is persisted in Room (SQLite). No photos are uploaded to any server. All player data stays on-device.
+Photos taken by the player are stored locally on the device. The file path is persisted in Room (SQLite). No photos are uploaded to any server — all player data stays on-device.
 
 ### Wild Animal Pool — Hardcoded
 
-The 12 wild species available as opponents are hardcoded in `BattleActivity.java`:
+The 12 wild species available as battle opponents are hardcoded in `BattleActivity.java`:
 
 ```
 wolf, bear, eagle, shark, lion, tiger,
 crocodile, gorilla, cheetah, panther, rhino, hyena
 ```
 
-These were chosen for recognizability and variety of combat archetypes.
+These were chosen for recognizability and variety of combat archetypes. Because stats are LLM-generated rather than hardcoded, any animal name could in principle be added to this pool without any backend changes.
 
 ---
 
@@ -167,8 +197,10 @@ Animal-Catch/
 │           ├── db/             # Room database, AnimalDao, AnimalEntity
 │           ├── BattleActivity.java
 │           └── ...
-├── server/                     # Python backend API
-│   ├── main.py
+├── server/                     # Python backend (Flask)
+│   ├── main.py                 # Flask app, route handlers
+│   ├── animalclassifier.py     # ViT image classification pipeline
+│   ├── statgenerator.py        # Qwen LLM stat generation pipeline
 │   └── requirements.txt
 └── README.md
 ```
@@ -213,17 +245,31 @@ Animal-Catch/
 **Hosting:** Render (free tier)  
 **Base URL:** `https://animal-catch.onrender.com`
 
-The backend serves one purpose: providing balanced base stats for each wild animal species so that the Android client does not need to hardcode numbers for every animal. Stats are then scaled client-side by `EnemyScaler` before the battle begins.
+The backend exposes two AI-powered endpoints: one that identifies an animal from a photo, and one that generates RPG stats for any animal name. Stats are scaled client-side by `EnemyScaler` after being received.
 
 ### Endpoints
 
-#### GET /stats/{animal}
+#### POST /identify
 
-Returns base combat stats for a named animal species.
+Accepts an image file and returns the identified animal's common English name.
+
+**Request:** `multipart/form-data` with an `image` field (PNG, JPG, or JPEG).
+
+**Example response:**
+```json
+{
+  "success": true,
+  "animalName": "wolf"
+}
+```
+
+#### GET /generatestats/{animalName}
+
+Prompts the Qwen LLM to generate balanced RPG stats for the given animal name.
 
 **Example request:**
 ```
-GET https://animal-catch.onrender.com/stats/wolf
+GET https://animal-catch.onrender.com/generatestats/wolf
 ```
 
 **Example response:**
@@ -231,14 +277,14 @@ GET https://animal-catch.onrender.com/stats/wolf
 {
   "success": true,
   "name": "Wolf",
-  "hp": 80,
-  "atk": 22,
-  "def": 14,
-  "spd": 20
+  "hp": 78,
+  "atk": 24,
+  "def": 15,
+  "spd": 21
 }
 ```
 
-**Error response (unknown animal):**
+**Error response:**
 ```json
 {
   "success": false
@@ -314,7 +360,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-The API will start at `http://localhost:8000`. Update the base URL in `ApiClient.java` to point to your local server if you do not want to use the hosted Render instance.
+The API will start at `http://localhost:5000`. Update the base URL in `ApiClient.java` to point to your local server if you do not want to use the hosted Render instance. Note that the ViT classifier and Qwen model will be downloaded from Hugging Face on first run — this may take several minutes depending on your connection. GPU is used automatically if available, with a CPU fallback.
 
 ### Running the Android app
 
