@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="300dp"
     android:layout_height="wrap_content"
@@ -21,6 +22,18 @@
             android:textColor="@android:color/white"
             android:textSize="22sp"
             android:textStyle="bold" />
+
+        <!-- Catch label — shown as "🎉 Added to inventory!" on first catch,
+             or "Caught × N" in inventory view -->
+        <TextView
+            android:id="@+id/tv_catch_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="4dp"
+            android:text=""
+            android:textColor="#4CAF50"
+            android:textSize="13sp" />
 
         <View
             android:layout_width="match_parent"
