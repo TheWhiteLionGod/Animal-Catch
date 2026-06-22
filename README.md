@@ -56,7 +56,7 @@ Animal-Catch/
 
 ---
 
-## ⚔️ Battle System
+##  Battle System
 
 Each battle round the player chooses an action:
 
